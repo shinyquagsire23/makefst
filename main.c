@@ -930,9 +930,11 @@ int get_num_entries(char *dir, u8 filesOnly)
         {
             if(strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
             {
-                if(!filesOnly)
+                int num_entries = get_num_entries(temp, filesOnly);
+                if(!filesOnly && num_entries)
                     num++;
-                num += get_num_entries(temp, filesOnly);
+                
+                num += num_entries;
             }
         }
         else
@@ -970,7 +972,7 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
         {
-            if(strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
+            if(strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..") && get_num_entries(temp, true))
             {
                 out_dirs[num] = calloc(strlen(temp)+2, 1);
                 out_sizes[num] = stbuf.st_size;
