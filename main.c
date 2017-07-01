@@ -907,6 +907,49 @@ void clear_dir(char *path)
     remove(path);
 }
 
+//Function to iterate through a blacklist of file name patterns, to stop normally hidden files from being copied to the FST.
+//List retrieved from https://www.gitignore.io/api/macos%2Clinux%2Cwindows
+bool isIgnoredFile(char *fileName)
+{
+    if(strncmp(fileName, ".fuse_hidden", 12) == 0) return true;
+    if(strcmp(fileName, ".directory") == 0) return true;
+    if(strncmp(fileName, ".Trash-", 7) == 0) return true;
+    if(strncmp(fileName, ".nfs", 4) == 0) return true;
+    if(strcmp(fileName, ".DS_Store") == 0) return true;
+    if(strcmp(fileName, ".AppleDouble") == 0) return true;
+    if(strcmp(fileName, ".LSOverride") == 0) return true;
+    if(strcmp(fileName, "Icon\r\r") == 0) return true;
+    if(strncmp(fileName, "._", 2) == 0) return true;
+    if(strcmp(fileName, ".DocumentRevisions-V100") == 0) return true;
+    if(strcmp(fileName, ".fseventsd") == 0) return true;
+    if(strcmp(fileName, ".Spotlight-V100") == 0) return true;
+    if(strcmp(fileName, ".TemporaryItems") == 0) return true;
+    if(strcmp(fileName, ".Trashes") == 0) return true;
+    if(strcmp(fileName, ".VolumeIcon.icns") == 0) return true;
+    if(strcmp(fileName, ".com.apple.timemachine.donotpresent") == 0) return true;
+    if(strcmp(fileName, ".AppleDB") == 0) return true;
+    if(strcmp(fileName, ".AppleDesktop") == 0) return true;
+    if(strcmp(fileName, "Network Trash Folder") == 0) return true;
+    if(strcmp(fileName, "Temporary Items") == 0) return true;
+    if(strcmp(fileName, ".apdisk") == 0) return true;
+    if(strcmp(fileName, "Thumbs.db") == 0) return true;
+    if(strcmp(fileName, "ehthumbs.db") == 0) return true;
+    if(strcmp(fileName, "ehthumbs_vista.db") == 0) return true;
+    if(strcmp(fileName, "Desktop.ini") == 0) return true;
+    if(strcmp(fileName, "$RECYCLE.BIN") == 0) return true;
+    
+    if((strlen(fileName) - 4) > 0)
+    {
+        if(strcmp(&fileName[strlen(fileName) - 4], ".cab") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msi") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msm") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msp") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".lnk") == 0) return true;
+    }
+    
+    return false;
+}
+
 int get_num_entries(char *dir, u8 filesOnly)
 {
     DIR *dfd;
@@ -929,6 +972,8 @@ int get_num_entries(char *dir, u8 filesOnly)
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
+        
+        if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
         {
@@ -973,6 +1018,8 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
+        
+        if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
         {
