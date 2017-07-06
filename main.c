@@ -23,6 +23,10 @@
 #include "pki/test.h"
 #include "pki/prod.h"
 
+#if __APPLE__
+#define PATH_MAX 1024
+#endif
+
 #define WIIU_BLOCK_SIZE 0x8000
 
 void clear_dir(char *path);
@@ -204,7 +208,7 @@ int main(int argc, char *argv[])
     }
     ezxml_free(meta_xml);
 
-    printf("Compiling directory '%s' under TID %016LX, Group Id 0x%X, ver %u...\n", dir, target_tid, target_group_id, target_version);
+    printf("Compiling directory '%s' under TID %016llX, Group Id 0x%X, ver %u...\n", dir, target_tid, target_group_id, target_version);
 
     int num_entries = get_num_entries(dir, 0);
     int num_files =  get_num_entries(dir, 1);
@@ -424,7 +428,7 @@ int main(int argc, char *argv[])
         strcpy(path, dir);
         strcat(path, "/");
         strcat(path, dir_entries[index_to_node[i]]);
-        printf("Content %-3x size %-10x actual size %-10x ", i, file_size, dir_entry_sizes[index_to_node[i]]);
+        printf("Content %-3x size %-10llx actual size %-10x ", i, file_size, dir_entry_sizes[index_to_node[i]]);
 	printf("%-10s\n", path);
 
         FILE* f_in = fopen(path, "rb");
@@ -864,11 +868,11 @@ void print_fst(void *fst_buffer)
 {
     fst_header *f_header = fst_buffer;
 
-    printf("Magic:\t%03s\nVersion:\t%x\nHeader Size:\t0x%x\nNumber of Sections:\t%u\nHash Disabled:\t%x\n\n", f_header->magic, f_header->version, getbe32(f_header->header_size), getbe32(f_header->num_sections), f_header->hash_disabled);
+    printf("Magic:\t%3s\nVersion:\t%x\nHeader Size:\t0x%x\nNumber of Sections:\t%u\nHash Disabled:\t%x\n\n", f_header->magic, f_header->version, getbe32(f_header->header_size), getbe32(f_header->num_sections), f_header->hash_disabled);
     for(int i = 0; i < getbe32(f_header->num_sections); i++)
     {
         fst_section_entry *f_entry = (fst_buffer+0x20) + (i*sizeof(fst_section_entry));
-        printf("entry %x:\nf_addr:\t\t%x\nf_size:\t\t%x\nowner_id:\t%x\ngroup_id:\t%x\nhash mode:\t%x\n\n", i, getbe32(f_entry->f_addr), getbe32(f_entry->f_len), getbe64(f_entry->owner_id), getbe32(f_entry->group_id), f_entry->hash_mode);
+        printf("entry %x:\nf_addr:\t\t%x\nf_size:\t\t%x\nowner_id:\t%llx\ngroup_id:\t%x\nhash mode:\t%x\n\n", i, getbe32(f_entry->f_addr), getbe32(f_entry->f_len), getbe64(f_entry->owner_id), getbe32(f_entry->group_id), f_entry->hash_mode);
     }
 
     fst_node_entry *f_root_entry = (fst_buffer+0x20) + (getbe32(f_header->num_sections)*sizeof(fst_section_entry));
@@ -891,7 +895,7 @@ void clear_dir(char *path)
     if(dir == NULL)
         return;
 
-    while (ent = readdir(dir))
+    while ((ent = readdir(dir)))
     {
         char temp_buf[0x200];
         sprintf(temp_buf, "%s%s", path, ent->d_name);
@@ -901,6 +905,49 @@ void clear_dir(char *path)
     closedir(dir);
 
     remove(path);
+}
+
+//Function to iterate through a blacklist of file name patterns, to stop normally hidden files from being copied to the FST.
+//List retrieved from https://www.gitignore.io/api/macos%2Clinux%2Cwindows
+bool isIgnoredFile(char *fileName)
+{
+    if(strncmp(fileName, ".fuse_hidden", 12) == 0) return true;
+    if(strcmp(fileName, ".directory") == 0) return true;
+    if(strncmp(fileName, ".Trash-", 7) == 0) return true;
+    if(strncmp(fileName, ".nfs", 4) == 0) return true;
+    if(strcmp(fileName, ".DS_Store") == 0) return true;
+    if(strcmp(fileName, ".AppleDouble") == 0) return true;
+    if(strcmp(fileName, ".LSOverride") == 0) return true;
+    if(strcmp(fileName, "Icon\r\r") == 0) return true;
+    if(strncmp(fileName, "._", 2) == 0) return true;
+    if(strcmp(fileName, ".DocumentRevisions-V100") == 0) return true;
+    if(strcmp(fileName, ".fseventsd") == 0) return true;
+    if(strcmp(fileName, ".Spotlight-V100") == 0) return true;
+    if(strcmp(fileName, ".TemporaryItems") == 0) return true;
+    if(strcmp(fileName, ".Trashes") == 0) return true;
+    if(strcmp(fileName, ".VolumeIcon.icns") == 0) return true;
+    if(strcmp(fileName, ".com.apple.timemachine.donotpresent") == 0) return true;
+    if(strcmp(fileName, ".AppleDB") == 0) return true;
+    if(strcmp(fileName, ".AppleDesktop") == 0) return true;
+    if(strcmp(fileName, "Network Trash Folder") == 0) return true;
+    if(strcmp(fileName, "Temporary Items") == 0) return true;
+    if(strcmp(fileName, ".apdisk") == 0) return true;
+    if(strcmp(fileName, "Thumbs.db") == 0) return true;
+    if(strcmp(fileName, "ehthumbs.db") == 0) return true;
+    if(strcmp(fileName, "ehthumbs_vista.db") == 0) return true;
+    if(strcmp(fileName, "Desktop.ini") == 0) return true;
+    if(strcmp(fileName, "$RECYCLE.BIN") == 0) return true;
+    
+    if((strlen(fileName) - 4) > 0)
+    {
+        if(strcmp(&fileName[strlen(fileName) - 4], ".cab") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msi") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msm") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".msp") == 0) return true;
+        if(strcmp(&fileName[strlen(fileName) - 4], ".lnk") == 0) return true;
+    }
+    
+    return false;
 }
 
 int get_num_entries(char *dir, u8 filesOnly)
@@ -925,6 +972,8 @@ int get_num_entries(char *dir, u8 filesOnly)
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
+        
+        if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
         {
@@ -969,6 +1018,8 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
+        
+        if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
         {
@@ -1008,7 +1059,10 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
         for(int i = 0; i < num; i++)
         {
             //Strip path from contents
-            strcpy(out_dirs[i], strstr(out_dirs[i], dir) + strlen(dir) + 1);
+            char * temp_buffer = malloc(strlen(out_dirs[i]));
+            strcpy(temp_buffer, out_dirs[i]);
+            strcpy(out_dirs[i], strstr(temp_buffer, dir) + strlen(dir) + 1);
+            free(temp_buffer);
 
             //Convert levels to indexes
             int j;
