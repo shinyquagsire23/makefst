@@ -23,7 +23,7 @@
 #include "pki/test.h"
 #include "pki/prod.h"
 
-#if __APPLE__
+#if defined(__APPLE__) || defined(__MINGW32__)
 #define PATH_MAX 1024
 #endif
 
@@ -44,7 +44,7 @@ void help_show()
         "-rawout        \"out folder/\"        Specify output folder\n"
         "-raw                                Do not pack FST contents\n"
         "-noraw                              Remove FST contents when done\n"
-        
+
         "\nWoomy options:\n"
         "-out           \"out name.woomy\"     Specify output filename\n"
         "-append                             Append additional data to existing woomy\n"
@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
     }
 
     ezxml_free(app_xml);
-    
+
     // sanity-check meta.xml structure
     sprintf(xml_path, "%s/meta/meta.xml", dir);
     ezxml_t meta_xml = ezxml_parse_file(xml_path);
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
     printf("%u files, %u entries total\n", num_files, num_entries);
     get_entries(dir, dir_entries, dir_entry_sizes, dir_entry_parents, 0, 0);
 
-    
+
     // begin building the actual fst file
     fst_header *f_header = fst_buffer;
     memcpy(f_header->magic, "FST", 3);
@@ -252,10 +252,10 @@ int main(int argc, char *argv[])
         fst_section_entry *f_entry = (fst_buffer+0x20) + (i*sizeof(fst_section_entry));
 
         int seed_dir_index = dir_entry_index;
-        while(dir_entries[dir_entry_index][strlen(dir_entries[dir_entry_index])-1] == '/') 
-        { 
-            node_to_index[dir_entry_index] = 0xFFFF; 
-            dir_entry_index++; 
+        while(dir_entries[dir_entry_index][strlen(dir_entries[dir_entry_index])-1] == '/')
+        {
+            node_to_index[dir_entry_index] = 0xFFFF;
+            dir_entry_index++;
         }
 
         index_to_node[i] = dir_entry_index;
@@ -335,16 +335,16 @@ int main(int argc, char *argv[])
                 // Next folder with same parent
                 if(dir_entry_parents[i-1] >= dir_entry_parents[j-1] && (dir_entries[j-1][strlen(dir_entries[j-1])-1] == '/'))
                     break;
-                
+
                 // more base dir entries
                 if((dir_entry_parents[i-1] == dir_entry_parents[j-1]) && dir_entry_parents[i-1] != 0)
                     break;
-                
+
             }
             putbe32(f_node_entry->f_len, j);
             putbe16(f_node_entry->content_id, node_to_index[i-1]);
         }
-        
+
         // RW for all files
         putbe16(f_node_entry->perms, 0x666);
     }
@@ -416,7 +416,7 @@ int main(int argc, char *argv[])
     for(int i = 1; i < getbe16(info->commandcount); i++)
     {
         u64 file_size = roundup(dir_entry_sizes[index_to_node[i]], WIIU_BLOCK_SIZE);
-        
+
         // 2MB buffer
         const u32 file_block_size = 0x200000;
         void *file_alloc = malloc(file_block_size);
@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
             size_t read = fread(file_alloc, 1, file_block_size, f_in);
             // round up to nearest 0x8000
             u32 write_size = (read + 0x7FFF) &~ 0x7FFF;
-            
+
             // zeroed padding at end of file
             memset(file_alloc + read, 0, write_size - read);
 
@@ -937,7 +937,7 @@ bool isIgnoredFile(char *fileName)
     if(strcmp(fileName, "ehthumbs_vista.db") == 0) return true;
     if(strcmp(fileName, "Desktop.ini") == 0) return true;
     if(strcmp(fileName, "$RECYCLE.BIN") == 0) return true;
-    
+
     if((strlen(fileName) - 4) > 0)
     {
         if(strcmp(&fileName[strlen(fileName) - 4], ".cab") == 0) return true;
@@ -946,7 +946,7 @@ bool isIgnoredFile(char *fileName)
         if(strcmp(&fileName[strlen(fileName) - 4], ".msp") == 0) return true;
         if(strcmp(&fileName[strlen(fileName) - 4], ".lnk") == 0) return true;
     }
-    
+
     return false;
 }
 
@@ -972,7 +972,7 @@ int get_num_entries(char *dir, u8 filesOnly)
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
-        
+
         if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
@@ -982,7 +982,7 @@ int get_num_entries(char *dir, u8 filesOnly)
                 int num_entries = get_num_entries(temp, filesOnly);
                 if(!filesOnly && num_entries)
                     num++;
-                
+
                 num += num_entries;
             }
         }
@@ -1018,7 +1018,7 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
             printf("Unable to stat file: %s\n", temp) ;
             continue ;
         }
-        
+
         if(isIgnoredFile(dp->d_name)) continue;
 
         if ( ( stbuf.st_mode & S_IFMT ) == S_IFDIR )
@@ -1036,7 +1036,7 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
 
                 num++;
                 num += get_entries(temp, out_dirs, out_sizes, out_parent_dir, num, base_parent_dir+1);
-                
+
             }
         }
         else
@@ -1050,7 +1050,7 @@ int get_entries(char *dir, char **out_dirs, u32 *out_sizes, u32 *out_parent_dir,
     }
     free(temp);
 
-    
+
     if(index == 0)
     {
         u32 *out_parent_dir_old = malloc(num*sizeof(u32));
