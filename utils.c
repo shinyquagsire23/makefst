@@ -5,6 +5,11 @@
  *  see file LICENSE for details
  */
 
+// Some kind of mysterious configuration setting for MinGW.
+#ifdef __MINGW32__
+#define __MSVCRT_VERSION__ 0x601
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -231,7 +236,13 @@ int makedir(const char* dir)
 
 u64 _fsize(const char *filename)
 {
-#ifdef _WIN32
+#if defined(__MINGW32__)
+	struct __stat64 st;
+	if(_stat64(filename, &st) != 0)
+		return 0;
+	else
+		return st.st_size;
+#elif defined(_WIN32)
 	struct _stat64 st;
 	if (_stat64(filename, &st) != 0)
 		return 0;
@@ -392,7 +403,10 @@ bool AssertFile(char *filename)
 {
 	if(filename == NULL)
 		return false;
-#ifdef _WIN32
+#if defined(__MINGW32__)
+	struct __stat64 st;
+	return _stat64(filename, &st) == 0;
+#elif defined(_WIN32)
 	struct _stat64 st;
 	return _stat64(filename, &st) == 0;
 #else
@@ -403,7 +417,13 @@ bool AssertFile(char *filename)
 
 u64 GetFileSize64(char *filename)
 {
-#ifdef _WIN32
+#if defined(__MINGW32__)
+	struct __stat64 st;
+	if(_stat64(filename, &st) != 0)
+		return 0;
+	else
+		return st.st_size;
+#elif defined(_WIN32)
 	struct _stat64 st;
 	if( _stat64(filename, &st) != 0)
 		return 0;
