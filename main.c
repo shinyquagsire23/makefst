@@ -23,7 +23,7 @@
 #include "pki/test.h"
 #include "pki/prod.h"
 
-#if __APPLE__
+#if defined(__APPLE__) || defined(__MINGW32__)
 #define PATH_MAX 1024
 #endif
 
@@ -252,10 +252,10 @@ int main(int argc, char *argv[])
         fst_section_entry *f_entry = (fst_buffer+0x20) + (i*sizeof(fst_section_entry));
 
         int seed_dir_index = dir_entry_index;
-        while(dir_entries[dir_entry_index][strlen(dir_entries[dir_entry_index])-1] == '/') 
-        { 
-            node_to_index[dir_entry_index] = 0xFFFF; 
-            dir_entry_index++; 
+        while(dir_entries[dir_entry_index][strlen(dir_entries[dir_entry_index])-1] == '/')
+        {
+            node_to_index[dir_entry_index] = 0xFFFF;
+            dir_entry_index++;
         }
 
         index_to_node[i] = dir_entry_index;
